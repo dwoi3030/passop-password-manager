@@ -63,17 +63,3 @@ src/
 
 This project stores passwords in browser localStorage. It is useful for practice and learning React, but it is not secure enough for real password storage.
 
-## Upload To GitHub
-
-From this project folder, run:
-
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPOSITORY_NAME.git
-git push -u origin main
-```
-
-Replace `YOUR_USERNAME` and `YOUR_REPOSITORY_NAME` with your GitHub username and repository name.
