@@ -1,6 +1,4 @@
- import React from 'react'
-
-import githubIcon from "../assets/github-icon-1-logo.svg";
+ import githubIcon from "../assets/github-icon-1-logo.svg";
 
 const NavBar = () => {
   return (

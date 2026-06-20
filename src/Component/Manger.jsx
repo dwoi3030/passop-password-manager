@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import Copyicon from "../assets/copy-svgrepo-com.svg"
 import { ToastContainer, toast, Bounce } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { v4 as uuidv4 } from "uuid";
+
+const API_BASE_URL = "http://localhost:3000/api/passwords"
 
 
 const Manager = () => {
@@ -16,77 +18,119 @@ const Manager = () => {
 
 
   useEffect(() => {
-    let password = localStorage.getItem("password")
-    if (password) {
-      setPasswordArray(JSON.parse(password))
+    const loadPasswords = async () => {
+      try {
+        const req = await fetch(API_BASE_URL)
+        if (!req.ok) {
+          throw new Error(`Backend returned ${req.status}`)
+        }
+
+        const passwords = await req.json()
+        setPasswordArray(passwords)
+      } catch (error) {
+        console.error('Error loading passwords from backend:', error)
+        toast.error("Could not connect to the backend")
+      }
     }
+
+    void loadPasswords()
   }, [])
 
-  const savePassword = () => {
-    if(form.site .length > 3 && form.username.length > 3 && form.password.length > 3) {
-    const newPassword = { ...form, id: uuidv4() }
-    setPasswordArray([...passwordArray, newPassword])
-    localStorage.setItem("password", JSON.stringify([...passwordArray, newPassword]))
-    toast('🦄 Password saved!', {
-      position: "top-right",
-      autoClose: 5000,
-      hideProgressBar: false,
-      closeOnClick: false,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: "light",
-      transition: Bounce,
-    })
-    console.log(passwordArray)
-    setForm({ site: "", username: "", password: "" })
+  const savePassword = async () => {
+    if (form.site.length > 3 && form.username.length > 3 && form.password.length > 3) {
+      const isEditing = Boolean(form.id)
+      const passwordToSave = { ...form, id: form.id || uuidv4() }
+
+      try {
+        const response = await fetch(
+          isEditing ? `${API_BASE_URL}/${form.id}` : API_BASE_URL,
+          {
+            method: isEditing ? "PUT" : "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(passwordToSave),
+          }
+        )
+
+        if (!response.ok) throw new Error(`Backend returned ${response.status}`)
+
+        setPasswordArray(previousPasswords =>
+          isEditing
+            ? previousPasswords.map(item =>
+                item.id === passwordToSave.id ? passwordToSave : item
+              )
+            : [...previousPasswords, passwordToSave]
+        )
+
+        toast('Password saved!', {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: false,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "light",
+          transition: Bounce,
+        })
+        setForm({ site: "", username: "", password: "" })
+      } catch (error) {
+        console.error("Error saving password:", error)
+        toast.error("Could not save the password")
+      }
+    } else {
+      toast('Please fill in all fields with at least 4 characters!', {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "light",
+        transition: Bounce,
+      })
+    }
   }
-
-else{
-  toast('🦄 Please fill in all fields with at least 4 characters!', {
-    position: "top-right",
-    autoClose: 5000,
-    hideProgressBar: false,
-    closeOnClick: false,
-    pauseOnHover: true,
-    draggable: true,
-    progress: undefined,
-    theme: "light",
-    transition: Bounce,
-  })
-}
-}
-
-const DeletePassword = (id) => {
+const DeletePassword = async (id) => {
   console.log("Delete password with id:", id)
-  let confirm = window.confirm("Are you sure you want to delete this password?")
-  if (confirm) {
-    setPasswordArray(passwordArray.filter(item => item.id !== id))
-    localStorage.setItem("password", JSON.stringify(passwordArray.filter(item => item.id !== id)))
-     toast('🦄 Password deleted!', {
-      position: "top-right",
-      autoClose: 5000,
-      hideProgressBar: false,
-      closeOnClick: false,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: "light",
-      transition: Bounce,
+  const confirmed = window.confirm("Are you sure you want to delete this password?")
+  if (confirmed) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/${id}`, { method: "DELETE" })
+      if (!response.ok) throw new Error(`Backend returned ${response.status}`)
+
+      setPasswordArray(previousPasswords =>
+        previousPasswords.filter(item => item.id !== id)
+      )
+      toast('Password deleted!', {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "light",
+        transition: Bounce,
+      })
+    } catch (error) {
+      console.error("Error deleting password:", error)
+      toast.error("Could not delete the password")
+    }
+  }
+}
+ const EditPassword = (id) => {
+  console.log("Edit password with id:", id)
+  const passwordToEdit = passwordArray.find(item => item.id === id)
+  if (passwordToEdit) {
+    setForm({
+      site: passwordToEdit.site,
+      username: passwordToEdit.username,
+      password: passwordToEdit.password,
+      id: passwordToEdit.id,
     })
   }
  }
-
- const EditPassword = (id) => {
-
-  console.log("Edit password with id:", id)
-  setForm(passwordArray.filter(item => item.id === id)[0])
-  setPasswordArray(passwordArray.filter(item => item.id !== id))
-  
-   
-
- }
-
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden">
@@ -170,8 +214,8 @@ const DeletePassword = (id) => {
                   </tr>
                 </thead>
                 <tbody className='bg-green-600 '>
-                  {passwordArray.map((item, index) => {
-                    return <tr key={index}>
+                  {passwordArray.map((item) => {
+                    return <tr key={item.id}>
                       <td className='text-center p-2 break-words'>
                         <a href={item.site} target='_blank' rel='noreferrer'>
                           {item.site}
